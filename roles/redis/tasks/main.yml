@@ -1,0 +1,109 @@
+---
+# tasks file for redis
+- name: Create kafka group
+  group:
+    name: '{{ kafka_group }}'
+    state: present
+    system: yes
+  when: kafka_create_user_group | bool
+  tags:
+    - kafka_group
+
+- name: Create kafka user
+  user:
+    name: '{{ kafka_user }}'
+    group: '{{ kafka_group }}'
+    state: present
+    createhome: no
+    system: yes
+  when: kafka_create_user_group | bool
+  tags:
+    - kafka_user
+
+- name: Update apt repo and cache on all Debian/Ubuntu boxes
+  apt:
+    update_cache: yes
+    force_apt_get: yes
+    cache_valid_time: 3600
+
+- name: Install required packages gnupg, gcc, g++, cmake
+  apt:
+    name:
+      - gnupg
+      - gcc
+      - g++
+      - cmake
+    state: latest
+
+- name: Download https://download.redis.io/releases/redis-6.2.6.tar.gz
+  ansible.builtin.get_url:
+    url: https://download.redis.io/releases/redis-6.2.6.tar.gz
+    dest: ~/redis-6.2.6.tar.gz
+    mode: '770'
+
+- name: Extract redis-6.2.6.tar.gz into redis-6.2.6 [1/2]
+  ansible.builtin.file:
+    path: /root/redis-6.2.6
+    state: directory
+    mode: '0755'
+
+- name: Extract redis-6.2.6.tar.gz into redis-6.2.6 [2/2]
+  ansible.builtin.unarchive:
+    src: ~/redis-6.2.6.tar.gz
+    dest: ~/redis-6.2.6
+    remote_src: yes
+
+- name: Building Redis source 6.2.6
+  shell:
+    cd ~/redis-6.2.6/redis-6.2.6 && make
+
+- name: Install redis 6.2.6
+  shell:
+    cd ~/redis-6.2.6/redis-6.2.6 && make install
+
+- name: Create unit {{ service_name }}.service
+  template:
+    src: /templates/redis.service.j2
+    dest: /etc/systemd/system/{{ service_name }}.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable and start {{ container_name }}
+  systemd:
+    name: '{{ service_name }}.service'
+    daemon_reload: true
+    enabled: "{{ service_enabled }}"
+    masked: "{{ service_masked }}"
+    state: "{{ service_state }}"
+  register: enable_and_start
+
+- name: Clean redis source
+  shell:
+    cd ..
+    rm redis-stable.tar.gz
+    rm -R redis-stable
+  notify:
+    - Start Redis
+
+- name: Template kafka systemd service
+  template:
+    src: redis.service.j2
+    dest: '{{ redis_unit_path }}'
+    group: '{{ kafka_group }}'
+    owner: '{{ kafka_user }}'
+    mode: 0644
+  notify:
+    - Restart kafka systemd
+  when: ansible_os_family == "RedHat" and ansible_distribution_major_version > '6' or ansible_os_family == "Debian"
+  tags:
+    - kafka_service
+
+- name: Install and start the kafka service
+  service:
+    name: kafka
+    state: started
+    enabled: yes
+  when: kafka_start
+  tags:
+    - kafka_service

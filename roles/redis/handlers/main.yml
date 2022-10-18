@@ -1,0 +1,14 @@
+---
+# handlers file for redis
+#- name: Restart kafka service
+#  service:
+#    name: kafka
+#    state: restarted
+#  when: kafka_restart
+
+- name: Restart redis
+  systemd:
+    name: redis
+    state: restarted
+    daemon_reload: yes
+  when: redis_restart
