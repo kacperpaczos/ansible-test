@@ -3,18 +3,13 @@
 
 # The redis user and group to create files/dirs with and for running the kafka service
 redis_create_user_group: true
-redis_user: kafka
-redis_group: kafka
-
-redis_root_dir: /opt
-redis_dir: "{{ kafka_root_dir }}/kafka"
+redis_user: redis
+redis_group: redis
 
 service_name: "redis"
+container_name: "redis"
 
-# The application log folder (e.g: server.log)
-redis_log_dir: /var/log/kafka
-
-# Start kafka after installation
+# Start redis after installation
 redis_start: yes
-# Restart kafka on configuration change
+# Restart redis on configuration change
 redis_restart: yes

@@ -1,0 +1,28 @@
+[Unit]
+Description=Apache Kafka Server
+Documentation=http://kafka.apache.org/documentation.html
+#Requires=zookeeper.service
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+StandardOutput=null
+Environment={{ KafkaEnv }}
+ExecStart={{ KafkaExecStart }}
+ExecStop={{ KafkaExecStop }}
+User={{ kafka_user }}
+Group={{ kafka_group }}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+Alias=kafka.service
+
+
+[Service]
+Type=simple
+
+
+[Install]
+WantedBy=multi-user.target

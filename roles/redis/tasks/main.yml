@@ -1,30 +1,31 @@
 ---
 # tasks file for redis
-- name: Create kafka group
-  group:
-    name: '{{ kafka_group }}'
+
+- name: Create
+  ansible.builtin.group:
+    name: "{{ redis_group }}"
     state: present
     system: yes
-  when: kafka_create_user_group | bool
-  tags:
-    - kafka_group
+  when: redis_create_user_group | bool
 
-- name: Create kafka user
+- name: "Create {{ container_name }} user"
   user:
-    name: '{{ kafka_user }}'
-    group: '{{ kafka_group }}'
+    name: '{{ redis_user }}'
+    group: '{{ redis_group }}'
     state: present
-    createhome: no
+    createhome: yes
     system: yes
-  when: kafka_create_user_group | bool
-  tags:
-    - kafka_user
+  when: redis_create_user_group | bool
 
-- name: Update apt repo and cache on all Debian/Ubuntu boxes
-  apt:
-    update_cache: yes
+- name: Update apt on all Debian/Ubuntu boxes
+  ansible.builtin.apt:
+    name: "*"
+    state: latest
+
+- name: Upgrade all packages on servers
+  ansible.builtin.apt:
+    upgrade: dist
     force_apt_get: yes
-    cache_valid_time: 3600
 
 - name: Install required packages gnupg, gcc, g++, cmake
   apt:
@@ -38,72 +39,39 @@
 - name: Download https://download.redis.io/releases/redis-6.2.6.tar.gz
   ansible.builtin.get_url:
     url: https://download.redis.io/releases/redis-6.2.6.tar.gz
-    dest: ~/redis-6.2.6.tar.gz
+    dest: '/home/{{ redis_user }}/redis-6.2.6.tar.gz'
     mode: '770'
 
-- name: Extract redis-6.2.6.tar.gz into redis-6.2.6 [1/2]
-  ansible.builtin.file:
-    path: /root/redis-6.2.6
-    state: directory
-    mode: '0755'
-
-- name: Extract redis-6.2.6.tar.gz into redis-6.2.6 [2/2]
+- name: Extract /home/{{ redis_user }}/redis-6.2.6.tar.gz into /home/{{ redis_user }}/redis-6.2.6
   ansible.builtin.unarchive:
-    src: ~/redis-6.2.6.tar.gz
-    dest: ~/redis-6.2.6
+    src: '/home/{{ redis_user }}/redis-6.2.6.tar.gz'
+    dest: '/home/{{ redis_user }}'
     remote_src: yes
 
 - name: Building Redis source 6.2.6
   shell:
-    cd ~/redis-6.2.6/redis-6.2.6 && make
+    "cd /home/{{ redis_user }}/redis-6.2.6 && make"
 
 - name: Install redis 6.2.6
   shell:
-    cd ~/redis-6.2.6/redis-6.2.6 && make install
+    "cd /home/{{ redis_user }}/redis-6.2.6 && make install"
 
-- name: Create unit {{ service_name }}.service
-  template:
-    src: /templates/redis.service.j2
-    dest: /etc/systemd/system/{{ service_name }}.service
-    owner: root
-    group: root
-    mode: '0644'
+- name: Clean redis sources
+  ansible.builtin.shell: "rm -R /home/{{ redis_user }}/redis*"
 
-- name: Enable and start {{ container_name }}
-  systemd:
-    name: '{{ service_name }}.service'
-    daemon_reload: true
-    enabled: "{{ service_enabled }}"
-    masked: "{{ service_masked }}"
-    state: "{{ service_state }}"
-  register: enable_and_start
-
-- name: Clean redis source
-  shell:
-    cd ..
-    rm redis-stable.tar.gz
-    rm -R redis-stable
-  notify:
-    - Start Redis
-
-- name: Template kafka systemd service
+- name: Template {{service_name}} systemd service
   template:
     src: redis.service.j2
     dest: '{{ redis_unit_path }}'
-    group: '{{ kafka_group }}'
-    owner: '{{ kafka_user }}'
+    group: '{{ redis_group }}'
+    owner: '{{ redis_user }}'
     mode: 0644
   notify:
-    - Restart kafka systemd
+    - Restart Redis please
   when: ansible_os_family == "RedHat" and ansible_distribution_major_version > '6' or ansible_os_family == "Debian"
-  tags:
-    - kafka_service
 
-- name: Install and start the kafka service
-  service:
-    name: kafka
+- name: Start and Enable the {{service_name}} service
+  ansible.builtin.systemd:
+    name: redis
     state: started
     enabled: yes
-  when: kafka_start
-  tags:
-    - kafka_service

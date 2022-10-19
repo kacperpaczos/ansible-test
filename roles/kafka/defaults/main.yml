@@ -1,2 +1,15 @@
 ---
 # defaults file for kafka
+kafka_create_user_group: true
+kafka_user: kafka
+kafka_group: kafka
+
+service_name: "kafka"
+container_name: "kafka"
+
+# Start redis after installation
+kafka_start: yes
+# Restart redis on configuration change
+kafka_restart: yes
+# Path to run in systemd service
+execute_kafka_path: /home/{{kafka_user}}/

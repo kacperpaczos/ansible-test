@@ -1,2 +1,86 @@
 ---
 # tasks file for kafka
+- name: Create {{ container_name }} user
+  ansible.builtin.group:
+    name: "{{ kafka_group }}"
+    state: present
+    system: yes
+  when: kafka_create_user_group | bool
+
+- name: "Create {{ container_name }} user"
+  user:
+    name: '{{ kafka_user }}'
+    group: '{{ kafka_group }}'
+    state: present
+    createhome: yes
+    system: yes
+  when: kafka_create_user_group | bool
+
+- name: Update apt on all Debian/Ubuntu boxes
+  ansible.builtin.apt:
+    name: "*"
+    state: latest
+
+- name: Upgrade all packages on servers
+  ansible.builtin.apt:
+    upgrade: dist
+    force_apt_get: yes
+
+- name: Install required packages gnupg gcc cmake g++ default-jre
+  ansible.builtin.apt:
+    name:
+      - gnupg
+      - gcc
+      - g++
+      - cmake
+      - default-jre
+      - unzip
+      - tar
+      - zstd
+    state: latest
+
+- name: Download https://dlcdn.apache.org/kafka/3.3.1/kafka_2.13-3.3.1.tgz
+  ansible.builtin.get_url:
+    url: https://dlcdn.apache.org/kafka/3.3.1/kafka_2.13-3.3.1.tgz
+    dest: '/home/{{ kafka_user }}/kafka_2.13-3.3.1.tgz'
+    mode: '770'
+
+- name: Extract /home/{{ kafka_user }}/kafka_2.13-3.3.1.tgz into /home/{{ kafka_user }}
+  ansible.builtin.unarchive:
+    src: '/home/{{ kafka_user }}/kafka_2.13-3.3.1.tgz'
+    dest: '/home/{{ kafka_user }}'
+    remote_src: yes
+
+- name: Create a install directory for Kafka if it does not exist
+  ansible.builtin.file:
+    path: "/home/{{ kafka_user }}/installed/"
+    state: directory
+    mode: '0755'
+
+- name: Install kafka_2.13-3.3.1
+  ansible.builtin.copy:
+    src: "/home/{{ kafka_user }}/kafka_2.13-3.3.1"
+    dest: "/home/{{ kafka_user }}/installed"
+    follow: yes
+    remote_src: yes
+
+- name: Template {{service_name}} systemd service
+  template:
+    src: kafka.service.j2
+    dest: '{{ kafka_unit_path }}'
+    group: '{{ kafka_group }}'
+    owner: '{{ kafka_user }}'
+    mode: 0644
+  notify:
+    - Restart Kafka please
+  when: ansible_os_family == "RedHat" and ansible_distribution_major_version > '6' or ansible_os_family == "Debian"
+
+- name: Start and Enable the {{service_name}} service
+  ansible.builtin.systemd:
+    name: kafka
+    daemon_reload: yes
+    state: started
+    enabled: yes
+
+- name: Clean kafka sources
+  ansible.builtin.shell: "rm -R /home/{{ kafka_user }}/kafka*"

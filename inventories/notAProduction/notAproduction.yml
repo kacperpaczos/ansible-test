@@ -1,0 +1,8 @@
+[all:vars]
+ansible_connection=ssh
+ansible_user=root
+ansible_ssh_pass=root
+
+[notAproduction]
+10.60.212.200
+10.60.212.241

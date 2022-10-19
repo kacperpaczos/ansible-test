@@ -1,8 +1,9 @@
-https://github.com/acch/ansible-boilerplate
-https://docs.ansible.com/ansible/latest/user_guide/sample_setup.html
-https://docs.ansible.com/ansible/latest/user_guide/sample_setup.html
-https://github.com/ansible/ansible-examples/tree/master/mongodb
-https://github.com/larryweya/ansible-roles-example
-https://docs.ansible.com/ansible/latest/user_guide/playbooks_reuse_roles.html
-https://docs.ansible.com/ansible/latest/user_guide/playbooks_reuse_roles.html
-https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html
+---
+# file: playbook.yml
+- name: Running Roles
+  hosts: notAproduction
+  roles:
+    #- redis
+    - kafka
+
+
